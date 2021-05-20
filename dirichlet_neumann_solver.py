@@ -5,71 +5,114 @@ from util import print_matrix
 
 class DirichletNeumannSolver:
     def __init__(self,
-                h,
+                g,
                 f,
                 area: SemiInfiniteArea,
                 u_ex = None):
-        self.h = h
+        self.g = g
         self.f = f
         self.area = area
 
         self.u_ex = u_ex
 
-    def get_mtx_coef(self, i, j, t, M):
-        # TODO
-        #return (self.R_j(t[i], t[j], n) * self.K_1(t[i], t[j])) + ((1 / (2*n)) * self.K_2(t[i], t[j]))
-        pass
+    def __N(self, x, y):
+        y_star = [y[0], -y[1]]
+        return np.math.log(1 / (np.linalg.norm(x - y) * np.linalg.norm(x - y_star)))
 
+    def __R_j(self, i, j, t, M):
+        weigh_sum = 0
+        for m in range(1, M):
+            weigh_sum += (1/m) * np.cos(m * (t[i] - t[j]))
+            
+        return -(1/(2*M)) * (1 + 2*weigh_sum + (np.cos(t[i] - t[j]) / M))
+
+    def __H_1(self, t, tau):
+        if abs(t - tau) > 10 ** -9:
+            return self.__N(self.area.Gamma(t), self.area.Gamma(tau)) + \
+                (1/2) * np.math.log((4/np.math.e) * (np.sin((t - tau) / 2) ** 2))
+        else:
+            return -np.math.log(2 * np.linalg.norm(self.area.dGamma(t)) * self.area.x2(t)) - 0.5
+
+    def __t(self, j, n):
+        return (j * np.pi) / n
+
+    def __get_mtx_coef(self, i, j, t, M):
+        return -(1/2) * self.__R_j(i, j, t, M) + (1/(2*M)) * self.__H_1(t[i], t[j])
+
+    def __w(self, t_j, c, M_1):
+        inf_sum = 0
+        h_inf = c / np.math.sqrt(M_1)
+
+        for i in range(-M_1, M_1+1):
+            inf_sum += self.f(i * h_inf) * self.__N(self.area.Gamma(t_j), self.area.x_inf(i * h_inf))
+
+        return self.g(t_j) - h_inf * inf_sum
 
     ### Runtime functions
     def solve(self, M = 4, verbose_mode = False):
         '''
-            Solves the KGE with the instance's parameter values
+            Solves the Dirichlet-Neumann problem with the instance's parameter values
  
             n: number of quadrature nodes
         '''
-        mu = np.zeros(2*M)
+        mu_a = np.zeros(2*M + 1)
         t = np.linspace(self.area.t_a, self.area.t_b, 2*M, False)
+        c = 1
+        M_1 = 64
 
         # setup linear system
-        mtx_A = np.zeros((2*M, 2*M))
-        vct_h = np.zeros(2*M)
+        mtx_A = np.zeros((2*M + 1, 2*M + 1))
+        vct_w = np.zeros(2*M + 1)
 
-        for i in range(2*M):
+        for i in range(2*M + 1):
+            if i == 2*M: # boundary condition
+                for j in range(2*M):
+                    mtx_A[i, j] = 1
+                mtx_A[i, 2*M] = 0 # alpha
+
+                continue
+
             for j in range(2*M):
-                mtx_A[i, j] = self.get_mtx_coef(i, j, t, M)
+                mtx_A[i, j] = self.__get_mtx_coef(i, j, t, M)
 
-                if i == j:
-                    mtx_A[i, j] -= 0.5
-
-            vct_h[i] = self.h(t[i])
+            mtx_A[i, 2*M] = 1 # alpha
+            vct_w[i] = self.__w(t[j], c, M_1)
 
         if verbose_mode:
             print("\nmtx_A=\n")
             print_matrix(mtx_A)
-            print(f"vct_h={vct_h}")
+            print(f"vct_w={vct_w}")
 
-        mu = np.linalg.solve(mtx_A, vct_h)
+        mu_a = np.linalg.solve(mtx_A, vct_w)
+
+        alpha = mu_a[-1]
+        mu = mu_a[:2*M]
 
         if verbose_mode:
-            print(f"\nmu_approx={mu}\n")
+            print(f"\nmu_approx={mu}")
+            print(f"alpha={alpha}\n")
 
-        return mu
+        return mu, alpha
 
 
     ## Testing functions
 
-    def get_u_approx(self, x, mu):
+    def get_u_approx(self, x, mu, alpha, c, M_1):
         '''
             Calculates the approximate value of the function using given densities
         '''
-        n = int(len(mu) / 2)
+        M = int(len(mu) / 2)
 
         quad_sum = 0
-        for j in range(2*n):
-            quad_sum += mu[j] * self.__K(x, self.__t(j, n))
+        for j in range(2*M):
+            quad_sum += mu[j] * self.__N(x, self.area.Gamma(self.__t(j, M)))
 
-        return quad_sum / (2*n)
+        inf_sum = 0
+        h_inf = c / np.math.sqrt(M_1)
+        for i in range(-M_1, M_1+1):
+            inf_sum += self.f(i * h_inf) * self.__N(x, self.area.x_inf(i * h_inf))
+
+        return quad_sum / (2*M) + h_inf * inf_sum + alpha
 
     def compute_error(self, mu_approx, n_pts, verbose_mode = False, latex_mode = False):
         '''
@@ -113,3 +156,37 @@ class DirichletNeumannSolver:
             plt.show()
 
         return error_vct, rel_error_vct
+
+
+
+V = lambda x, y: x**2 - y**2
+gradV = lambda x, y: [2*x, -2*y]
+
+area = SemiInfiniteArea(
+    D   = lambda q, t: np.array([   q*np.cos(t),   1.5+q*np.sin(t)     ]),
+    dD  = lambda q, t: np.array([   -q*np.sin(t),  q*np.cos(t)     ]),
+    d2D = lambda q, t: np.array([   -q*np.cos(t),  -q*np.sin(t)    ]),
+
+    qRange = [0.0, 1.0],
+    tRange = [0.0, 2*np.pi]
+)
+
+g = lambda t: np.dot(gradV(
+    area.x_inf(t)[0], 
+    area.x_inf(t)[1]
+), area.normal_inf(t))
+
+f = lambda t: V(
+    area.x_inf(t)[0], 
+    area.x_inf(t)[1]
+)
+
+area.plot_boundary()
+
+solver = DirichletNeumannSolver(g, f, area, V)
+
+mu, alpha = solver.solve(M=4, verbose_mode=True)
+
+x_test = np.array([0.37, 0.0])
+print(f'V in [{x_test}] = {V(x_test[0], x_test[1])}')
+print(f'U in [{x_test}] = {solver.get_u_approx(x_test, mu, alpha, 1, 64)}')

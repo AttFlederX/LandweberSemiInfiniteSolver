@@ -20,6 +20,8 @@ class SemiInfiniteArea:
         self.dGamma     = lambda t: dD(self.q_b, t)
         self.d2Gamma    = lambda t: d2D(self.q_b, t)
 
+        self.x_inf      = lambda t: [t, 0]
+
         self.x1         = lambda t: (self.Gamma(t))[0]
         self.x2         = lambda t: (self.Gamma(t))[1]
         self.dx1        = lambda t: (self.dGamma(t))[0]
@@ -63,6 +65,13 @@ class SemiInfiniteArea:
         return np.array([
             self.dx2(t) / np.linalg.norm(self.dGamma(t), 2),
             -self.dx1(t) / np.linalg.norm(self.dGamma(t), 2)
+        ])
+
+    def normal_inf(self, t):
+        ''' Calculates a normal vector from the infinite line x_inf in point t '''
+        return np.array([
+            0,
+            -1
         ])
 
     def get_random_points(self, n, qRange = None, tRange = None):
