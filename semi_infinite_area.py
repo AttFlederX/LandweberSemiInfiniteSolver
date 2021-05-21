@@ -43,23 +43,6 @@ class SemiInfiniteArea:
         if show_plot:
             plt.show()
 
-    def is_positive_on_area(self, f, q_max, t_max):
-        ''' Determines whether the function is positive inside a 2D-area '''
-        isPos = True
-        pts_q = np.linspace(self.q_a, self.q_b, q_max, False)
-        pts_t = np.linspace(self.t_a, self.t_b, t_max)
-
-        pt = []
-
-        for q in pts_q:
-            for t in pts_t:
-                pt = self.D(q, t)
-                if f(pt[0], pt[1]) <= 0:
-                    isPos = False
-                    print(f"Negative value found at x={pt[0]}, y={pt[1]}")
-
-        return isPos
-
     def normal(self, t):
         ''' Calculates a normal vector from curve Gamma in point t '''
         return np.array([

@@ -33,9 +33,6 @@ class DirichletNeumannSolver:
         else:
             return -np.math.log(2 * np.linalg.norm(self.area.dGamma(t)) * self.area.x2(t)) - 0.5
 
-    def __t(self, j, n):
-        return (j * np.pi) / n
-
     def __get_mtx_coef(self, i, j, t, M):
         return -(1/2) * self.__R_j(i, j, t, M) + (1/(2*M)) * self.__H_1(t[i], t[j])
 
@@ -76,7 +73,7 @@ class DirichletNeumannSolver:
                 mtx_A[i, j] = self.__get_mtx_coef(i, j, t, M)
 
             mtx_A[i, 2*M] = 1 # alpha
-            vct_w[i] = self.__w(t[j], c, M_1)
+            vct_w[i] = self.__w(t[i], c, M_1)
 
         if verbose_mode:
             print("\nmtx_A=\n")
@@ -102,10 +99,11 @@ class DirichletNeumannSolver:
             Calculates the approximate value of the function using given densities
         '''
         M = int(len(mu) / 2)
+        t = np.linspace(self.area.t_a, self.area.t_b, 2*M, False)
 
         quad_sum = 0
         for j in range(2*M):
-            quad_sum += mu[j] * self.__N(x, self.area.Gamma(self.__t(j, M)))
+            quad_sum += mu[j] * self.__N(x, self.area.Gamma(t[j]))
 
         inf_sum = 0
         h_inf = c / np.math.sqrt(M_1)
@@ -113,6 +111,9 @@ class DirichletNeumannSolver:
             inf_sum += self.f(i * h_inf) * self.__N(x, self.area.x_inf(i * h_inf))
 
         return quad_sum / (2*M) + h_inf * inf_sum + alpha
+
+    def get_du_normal_approx(self, x, mu, alpha, c, M_1):
+        pass
 
     def compute_error(self, mu_approx, n_pts, verbose_mode = False, latex_mode = False):
         '''
@@ -171,22 +172,22 @@ area = SemiInfiniteArea(
     tRange = [0.0, 2*np.pi]
 )
 
-g = lambda t: np.dot(gradV(
+g = lambda t: V(
+    area.Gamma(t)[0], 
+    area.Gamma(t)[1]
+)
+
+f = lambda t: np.dot(gradV(
     area.x_inf(t)[0], 
     area.x_inf(t)[1]
 ), area.normal_inf(t))
-
-f = lambda t: V(
-    area.x_inf(t)[0], 
-    area.x_inf(t)[1]
-)
 
 area.plot_boundary()
 
 solver = DirichletNeumannSolver(g, f, area, V)
 
-mu, alpha = solver.solve(M=4, verbose_mode=True)
+mu, alpha = solver.solve(M=16, verbose_mode=False)
 
-x_test = np.array([0.37, 0.0])
+x_test = np.array([0.37, 1.75])
 print(f'V in [{x_test}] = {V(x_test[0], x_test[1])}')
 print(f'U in [{x_test}] = {solver.get_u_approx(x_test, mu, alpha, 1, 64)}')
