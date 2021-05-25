@@ -1,7 +1,9 @@
 from semi_infinite_area import SemiInfiniteArea
+from util import print_matrix
+
+from os import path
 import numpy as np
 import matplotlib.pyplot as plt
-from util import print_matrix
 
 class DirichletNeumannSolver:
     def __init__(self,
@@ -44,6 +46,24 @@ class DirichletNeumannSolver:
             inf_sum += self.f(i * h_inf) * self.__N(self.area.Gamma(t_j), self.area.x_inf(i * h_inf))
 
         return self.g(t_j) - h_inf * inf_sum
+
+    def __H_2(self, t, tau):
+        x = self.area.Gamma(t)
+        y = self.area.Gamma(tau)
+        y_star = [y[0], -y[1]]
+
+        if abs(t - tau) > 10 ** -9:
+            return (np.dot(y - x, self.area.normal(t)) / (np.linalg.norm(x - y)**2)) - \
+                (np.dot(x - y_star, self.area.normal(t)) / (np.linalg.norm(x - y_star)**2))
+        else:
+            return (np.dot(self.area.d2Gamma(t), self.area.normal(t)) / (2*(np.linalg.norm(self.area.dGamma(t))**2))) + \
+                (self.area.dx1(t) / (2*self.area.x2(t)*np.linalg.norm(self.area.dGamma(t))))
+
+    def __H_3(self, t, tau):
+        x = self.area.Gamma(t)
+        y_inf = self.area.x_inf(tau)
+
+        return -2 * (np.dot(x - y_inf, self.area.normal(t)) / (np.linalg.norm(x - y_inf)**2))
 
     ### Runtime functions
     def solve(self, M = 4, verbose_mode = False):
@@ -110,10 +130,27 @@ class DirichletNeumannSolver:
         for i in range(-M_1, M_1+1):
             inf_sum += self.f(i * h_inf) * self.__N(x, self.area.x_inf(i * h_inf))
 
-        return quad_sum / (2*M) + h_inf * inf_sum + alpha
+        return (quad_sum / (2*M)) + (h_inf * inf_sum) + alpha
 
-    def get_du_normal_approx(self, x, mu, alpha, c, M_1):
-        pass
+    def get_du_normal_approx(self, t, mu, alpha, c, M_1):
+        M = int(len(mu) / 2)
+        T = np.linspace(self.area.t_a, self.area.t_b, 2*M, False)
+
+        i = T.index(t)
+
+        quad_sum = 0
+        for j in range(2*M):
+            quad_sum += mu[j] * self.__H_2(t, T[j])
+
+        inf_sum = 0
+        h_inf = c / np.math.sqrt(M_1)
+        for i in range(-M_1, M_1+1):
+            inf_sum += self.f(i * h_inf) * self.__H_3(t, i * h_inf)
+
+        return (-mu[i] / (2*(np.linalg.norm(self.area.dGamma(t))**2))) + \
+            (quad_sum / (2*M)) + \
+            (h_inf * inf_sum)
+
 
     def compute_error(self, mu_approx, n_pts, verbose_mode = False, latex_mode = False):
         '''
@@ -158,13 +195,32 @@ class DirichletNeumannSolver:
 
         return error_vct, rel_error_vct
 
+def load_or_generate_exact_data(g, f, area, M_ex=128):
+    if path.exists('exact.npy'):
+        data = np.array([])
+        with open('exact.npy', 'rb') as f:
+            data = np.load(f)
+            data = data.tolist()
 
+        return data[0][:-1], data[0][-1]
+    else:        
+        solver_ex = DirichletNeumannSolver(g, f, area)
+        mu_ex, alpha_ex = solver_ex.solve(M=M_ex, verbose_mode=False)
 
-V = lambda x, y: x**2 - y**2
-gradV = lambda x, y: [2*x, -2*y]
+        mu_ex_data = list(mu_ex)
+        mu_ex_data.append(alpha_ex)
 
+        with open('exact.npy', 'wb') as f:
+            np.save(f, np.array([mu_ex_data]))
+
+        return mu_ex, alpha_ex
+
+#V = lambda x, y: x**2 - y**2
+#gradV = lambda x, y: [2*x, -2*y]
+
+r = lambda t: np.math.sqrt(np.cos(t)**2 + 0.25*(np.sin(t)**2))
 area = SemiInfiniteArea(
-    D   = lambda q, t: np.array([   q*np.cos(t),   1.5+q*np.sin(t)     ]),
+    D   = lambda q, t: np.array([   r(t)*np.cos(t),   r(t)*np.sin(t) + 1.5     ]),
     dD  = lambda q, t: np.array([   -q*np.sin(t),  q*np.cos(t)     ]),
     d2D = lambda q, t: np.array([   -q*np.cos(t),  -q*np.sin(t)    ]),
 
@@ -172,22 +228,35 @@ area = SemiInfiniteArea(
     tRange = [0.0, 2*np.pi]
 )
 
-g = lambda t: V(
-    area.Gamma(t)[0], 
-    area.Gamma(t)[1]
-)
+# g = lambda t: V(
+#     area.Gamma(t)[0], 
+#     area.Gamma(t)[1]
+# )
 
-f = lambda t: np.dot(gradV(
-    area.x_inf(t)[0], 
-    area.x_inf(t)[1]
-), area.normal_inf(t))
+# f = lambda t: np.dot(gradV(
+#     area.x_inf(t)[0], 
+#     area.x_inf(t)[1]
+# ), area.normal_inf(t))
+
+g_x = lambda x: x[0] - 0.1*(x[1] - 1.5)
+g = lambda t: g_x(area.Gamma(t))
+
+f_x = lambda x: x[0]*np.math.exp(-(x[0]**2))
+f = lambda t: f_x(area.x_inf(t))
 
 area.plot_boundary()
 
-solver = DirichletNeumannSolver(g, f, area, V)
 
-mu, alpha = solver.solve(M=16, verbose_mode=False)
+solver = DirichletNeumannSolver(g, f, area)
 
-x_test = np.array([0.37, 1.75])
-print(f'V in [{x_test}] = {V(x_test[0], x_test[1])}')
-print(f'U in [{x_test}] = {solver.get_u_approx(x_test, mu, alpha, 1, 64)}')
+# generate 'exact' data
+mu_ex, alpha_ex = load_or_generate_exact_data(g, f, area)
+V = lambda x: solver.get_u_approx(x, mu_ex, alpha_ex, 1, 64)
+
+
+x_test = np.array([8.37, 7.5])
+print(f'\nV({x_test}) = {V(x_test)}\n')
+
+for i in [4, 8, 16, 32, 64]:
+    mu, alpha = solver.solve(M=i, verbose_mode=False)
+    print(f' >>> [M={i}] U({x_test}) = {solver.get_u_approx(x_test, mu, alpha, 1, 64)}')

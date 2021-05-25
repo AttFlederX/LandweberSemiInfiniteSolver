@@ -36,9 +36,15 @@ class SemiInfiniteArea:
         x = list(map(self.x1, tau))
         y = list(map(self.x2, tau))
 
-        plt.plot(x, y, label='D')
+        plt.plot(x, y, label='Г0')
+
+        x = np.linspace(-2, 2)
+        y = np.zeros(len(x))
+
+        plt.plot(x, y, label='Г')
 
         plt.axis('scaled')
+        plt.legend()
         
         if show_plot:
             plt.show()
