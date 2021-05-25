@@ -114,7 +114,7 @@ class DirichletNeumannSolver:
 
     ## Testing functions
 
-    def get_u_approx(self, x, mu, alpha, c, M_1):
+    def get_u_approx(self, x, mu, alpha, c = 1, M_1 = 64):
         '''
             Calculates the approximate value of the function using given densities
         '''
