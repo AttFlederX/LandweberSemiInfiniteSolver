@@ -134,7 +134,7 @@ class DirichletNeumannSolver:
 
     def get_du_normal_approx(self, t, mu, alpha, c, M_1):
         M = int(len(mu) / 2)
-        T = np.linspace(self.area.t_a, self.area.t_b, 2*M, False)
+        T = np.linspace(self.area.t_a, self.area.t_b, 2*M, False).tolist()
 
         i = T.index(t)
 
@@ -144,8 +144,8 @@ class DirichletNeumannSolver:
 
         inf_sum = 0
         h_inf = c / np.math.sqrt(M_1)
-        for i in range(-M_1, M_1+1):
-            inf_sum += self.f(i * h_inf) * self.__H_3(t, i * h_inf)
+        for k in range(-M_1, M_1+1):
+            inf_sum += self.f(k * h_inf) * self.__H_3(t, k * h_inf)
 
         return (-mu[i] / (2*(np.linalg.norm(self.area.dGamma(t))**2))) + \
             (quad_sum / (2*M)) + \
@@ -252,11 +252,16 @@ solver = DirichletNeumannSolver(g, f, area)
 # generate 'exact' data
 mu_ex, alpha_ex = load_or_generate_exact_data(g, f, area)
 V = lambda x: solver.get_u_approx(x, mu_ex, alpha_ex, 1, 64)
+dVnu = lambda t: solver.get_du_normal_approx(t, mu_ex, alpha_ex, 1, 64)
 
 
-x_test = np.array([8.37, 7.5])
+x_test = np.array([1.1, 1.5])
+t_test = np.pi / 2
+
 print(f'\nV({x_test}) = {V(x_test)}\n')
+print(f'\ndVnu({x_test}) = {dVnu(t_test)}\n')
 
 for i in [4, 8, 16, 32, 64]:
     mu, alpha = solver.solve(M=i, verbose_mode=False)
     print(f' >>> [M={i}] U({x_test}) = {solver.get_u_approx(x_test, mu, alpha, 1, 64)}')
+    print(f' >>> [M={i}] dUnu({t_test}) = {solver.get_du_normal_approx(t_test, mu, alpha, 1, 64)}')
