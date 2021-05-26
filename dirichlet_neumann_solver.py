@@ -215,53 +215,56 @@ def load_or_generate_exact_data(g, f, area, M_ex=128):
 
         return mu_ex, alpha_ex
 
-#V = lambda x, y: x**2 - y**2
-#gradV = lambda x, y: [2*x, -2*y]
-
-r = lambda t: np.math.sqrt(np.cos(t)**2 + 0.25*(np.sin(t)**2))
-area = SemiInfiniteArea(
-    D   = lambda q, t: np.array([   r(t)*np.cos(t),   r(t)*np.sin(t) + 1.5     ]),
-    dD  = lambda q, t: np.array([   -q*np.sin(t),  q*np.cos(t)     ]),
-    d2D = lambda q, t: np.array([   -q*np.cos(t),  -q*np.sin(t)    ]),
-
-    qRange = [0.0, 1.0],
-    tRange = [0.0, 2*np.pi]
-)
-
-# g = lambda t: V(
-#     area.Gamma(t)[0], 
-#     area.Gamma(t)[1]
-# )
-
-# f = lambda t: np.dot(gradV(
-#     area.x_inf(t)[0], 
-#     area.x_inf(t)[1]
-# ), area.normal_inf(t))
-
-g_x = lambda x: x[0] - 0.1*(x[1] - 1.5)
-g = lambda t: g_x(area.Gamma(t))
-
-f_x = lambda x: x[0]*np.math.exp(-(x[0]**2))
-f = lambda t: f_x(area.x_inf(t))
-
-area.plot_boundary()
-
-
-solver = DirichletNeumannSolver(g, f, area)
-
-# generate 'exact' data
-mu_ex, alpha_ex = load_or_generate_exact_data(g, f, area)
-V = lambda x: solver.get_u_approx(x, mu_ex, alpha_ex, 1, 64)
-dVnu = lambda t: solver.get_du_normal_approx(t, mu_ex, alpha_ex, 1, 64)
-
-
-x_test = np.array([1.1, 1.5])
-t_test = np.pi / 2
-
-print(f'\nV({x_test}) = {V(x_test)}\n')
-print(f'\ndVnu({x_test}) = {dVnu(t_test)}\n')
-
-for i in [4, 8, 16, 32, 64]:
-    mu, alpha = solver.solve(M=i, verbose_mode=False)
-    print(f' >>> [M={i}] U({x_test}) = {solver.get_u_approx(x_test, mu, alpha, 1, 64)}')
-    print(f' >>> [M={i}] dUnu({t_test}) = {solver.get_du_normal_approx(t_test, mu, alpha, 1, 64)}')
+def test():
+    #V = lambda x, y: x**2 - y**2
+    #gradV = lambda x, y: [2*x, -2*y]
+    
+    r = lambda t: np.math.sqrt(np.cos(t)**2 + 0.25*(np.sin(t)**2))
+    area = SemiInfiniteArea(
+        D   = lambda q, t: np.array([   r(t)*np.cos(t),   r(t)*np.sin(t) + 1.5     ]),
+        dD  = lambda q, t: np.array([   -q*np.sin(t),  q*np.cos(t)     ]),
+        d2D = lambda q, t: np.array([   -q*np.cos(t),  -q*np.sin(t)    ]),
+    
+        qRange = [0.0, 1.0],
+        tRange = [0.0, 2*np.pi]
+    )
+    
+    # g = lambda t: V(
+    #     area.Gamma(t)[0], 
+    #     area.Gamma(t)[1]
+    # )
+    
+    # f = lambda t: np.dot(gradV(
+    #     area.x_inf(t)[0], 
+    #     area.x_inf(t)[1]
+    # ), area.normal_inf(t))
+    
+    g_x = lambda x: x[0] - 0.1*(x[1] - 1.5)
+    g = lambda t: g_x(area.Gamma(t))
+    
+    f_x = lambda x: x[0]*np.math.exp(-(x[0]**2))
+    f = lambda t: f_x(area.x_inf(t))
+    
+    area.plot_boundary()
+    
+    
+    solver = DirichletNeumannSolver(g, f, area)
+    
+    # generate 'exact' data
+    mu_ex, alpha_ex = load_or_generate_exact_data(g, f, area)
+    V = lambda x: solver.get_u_approx(x, mu_ex, alpha_ex, 1, 64)
+    dVnu = lambda t: solver.get_du_normal_approx(t, mu_ex, alpha_ex, 1, 64)
+    
+    
+    x_test = np.array([1.1, 1.5])
+    t_test = np.pi / 2
+    
+    print(f'\nV({x_test}) = {V(x_test)}\n')
+    print(f'\ndVnu({x_test}) = {dVnu(t_test)}\n')
+    
+    for i in [4, 8, 16, 32, 64]:
+        mu, alpha = solver.solve(M=i, verbose_mode=False)
+        print(f' >>> [M={i}] U({x_test}) = {solver.get_u_approx(x_test, mu, alpha, 1, 64)}')
+        print(f' >>> [M={i}] dUnu({t_test}) = {solver.get_du_normal_approx(t_test, mu, alpha, 1, 64)}')
+        
+#test()
