@@ -25,26 +25,37 @@ class LandweberCauchySolver:
         hk_x = lambda x: x[0]+x[1]#np.exp(x[0]-x[1]) #random initial function h0
         hk0 = lambda t: hk_x(self.problem.area.Gamma(t))
         hk = lambda t: hk_x(self.problem.area.Gamma(t))
+
+        mu_u = np.array([])
+        alpha_u = np.array([])
+
+        mu_v = np.array([])
+        alpha_v = np.array([])
+
         for i in range(1, maxiter+1):
             if (verbose_mode): 
                 print("\tIteration", i, "started")
+
             #Step2: solve well-posed problem A (3.1-3.2)
-            solver1 = DirichletNeumannSolver(self.problem.f2, hk, self.problem.area)
-            mu, alpha = solver1.solve(M)
-            print("first", mu, alpha)
+            solver1 = DirichletNeumannSolver(hk, self.problem.f2, self.problem.area)
+            mu_u, alpha_u = solver1.solve(M)
+            #print("first", mu_u, alpha_u)
+
             #Step3: gk = uk - f1
-            gk_x = lambda x: solver1.get_u_approx(x, mu, alpha)
-            gk = lambda t: gk_x(self.problem.area.Gamma(t)) - self.problem.f1(t)
+            uk_x = lambda x: solver1.get_u_approx(x, mu_u, alpha_u)
+            gk = lambda t: uk_x(self.problem.area.Gamma(t)) - self.problem.f1(t)
+
             #Step4: solve well-posed problem B (3.3-3.4)
-            solver2 = DirichletNeumannSolver(gk, lambda t: 0, self.problem.area)
-            mu, alpha = solver2.solve(M, False)
-            print("second", mu, alpha)
+            solver2 = DirichletNeumannSolver(lambda t: 0, gk, self.problem.area)
+            mu_v, alpha_v = solver2.solve(M, False)
+            #print("second", mu_v, alpha_v)
+
             #Step5: reassign hk
-            dVnu = lambda t: solver2.get_du_normal_approx(t, mu, alpha)
+            dVnu = lambda t: solver2.get_du_normal_approx(t, mu_v, alpha_v)
             hk = lambda t: hk0(t) - i * beta * dVnu(t)
             
         #Final approximation
-        solver = DirichletNeumannSolver(self.problem.f2, hk, self.problem.area)
+        solver = DirichletNeumannSolver(hk, self.problem.f2, self.problem.area)
         mu, alpha = solver.solve(M)
         
         return mu, alpha
@@ -108,7 +119,7 @@ def testCauchy():
     # print(f'\ndVnu({x_test}) = {dVnu(t_test)}\n')
     
     for i in [4, 8, 16, 32, 64]:
-        mu, alpha = solver.solve(M=i, maxiter=1, verbose_mode=True)
+        mu, alpha = solver.solve(M=i, maxiter=3, verbose_mode=True)
         print(f' >>Cauchy> [M={i}] U({x_test}) = {dirichlet_solver.get_u_approx(x_test, mu, alpha, 1, 64)}')
         print(f' >>Cauchy> [M={i}] dUnu({t_test}) = {dirichlet_solver.get_du_normal_approx(t_test, mu, alpha, 1, 64)}')
         
