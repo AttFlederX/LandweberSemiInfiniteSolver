@@ -7,8 +7,8 @@ import matplotlib.pyplot as plt
 
 class DirichletNeumannSolver:
     def __init__(self,
-                g,
-                f,
+                g, #Diriclet
+                f, #Neumann
                 area: SemiInfiniteArea,
                 u_ex = None):
         self.g = g
