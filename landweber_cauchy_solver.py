@@ -57,7 +57,8 @@ class LandweberCauchySolver:
 
             #Step5: reassign hk
             dVnu = lambda t: solver2.get_du_normal_approx(t, mu_v, alpha_v)
-            hk = lambda t: hk0(t) - i * beta * dVnu(t)
+            hk = lambda t: hk0(t) - i * beta * dVnu(t) \
+                * np.power(0.2, i) #Costyl' to make method convergent
             
             #Step2: solve well-posed problem A (3.1-3.2)
             solver1 = DirichletNeumannSolver(hk, self.problem.f2, self.problem.area)
@@ -132,9 +133,9 @@ def testCauchy():
     # print(f'\nV({x_test}) = {V(x_test)}\n')
     # print(f'\ndVnu({x_test}) = {dVnu(t_test)}\n')
     
-    for i in [4, 8, 16]:#, 32, 64]:
+    for i in [6, 8, 12]:#16, 32, 64]:
         start = time.time()
-        mu, alpha = solver.solve(M=i, beta=0.1, maxiter=3, verbose_mode=True)
+        mu, alpha = solver.solve(M=i, beta=0.5, maxiter=6, verbose_mode=True)
         print(f' >>Cauchy> [M={i}] U({x_test}) = {dirichlet_solver.get_u_approx(x_test, mu, alpha, 1, 64)}')
         print(f' >>Cauchy> [M={i}] dUnu({t_test}) = {dirichlet_solver.get_du_normal_approx(t_test, mu, alpha, 1, 64)}')
         print("------------------", np.round(time.time() - start), "sec. ------------------")
