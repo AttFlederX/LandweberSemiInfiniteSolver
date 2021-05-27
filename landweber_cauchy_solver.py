@@ -23,29 +23,28 @@ class LandweberCauchySolver:
         '''
         #Step 1: init
         hk_x = lambda x: x[0]+x[1]#np.exp(x[0]-x[1]) #random initial function h0
-        hks = []
+        hk0 = lambda t: hk_x(self.problem.area.Gamma(t))
         hk = lambda t: hk_x(self.problem.area.Gamma(t))
-        hks.append(hk)
-        for i in range(maxiter):
+        for i in range(1, maxiter+1):
             if (verbose_mode): 
                 print("\tIteration", i, "started")
             #Step2: solve well-posed problem A (3.1-3.2)
-            solver = DirichletNeumannSolver(self.problem.f2, hks[len(hks)-1], self.problem.area)
-            mu, alpha = solver.solve(M)
+            solver1 = DirichletNeumannSolver(self.problem.f2, hk, self.problem.area)
+            mu, alpha = solver1.solve(M)
+            print("first", mu, alpha)
             #Step3: gk = uk - f1
-            gk_x = lambda x: solver.get_u_approx(x, mu, alpha)
+            gk_x = lambda x: solver1.get_u_approx(x, mu, alpha)
             gk = lambda t: gk_x(self.problem.area.Gamma(t)) - self.problem.f1(t)
             #Step4: solve well-posed problem B (3.3-3.4)
-            solver = DirichletNeumannSolver(gk, lambda x: 0, self.problem.area)
-            mu, alpha = solver.solve(M)
+            solver2 = DirichletNeumannSolver(gk, lambda t: 0, self.problem.area)
+            mu, alpha = solver2.solve(M, False)
+            print("second", mu, alpha)
             #Step5: reassign hk
-            dVnu = lambda t: solver.get_du_normal_approx(t, mu, alpha)
-            hk_new = lambda t: hks[len(hks)-1](t) - beta * dVnu(t)
-            hks.append(hk_new)
-            #TODO maximum recursion depth exceeded while calling a Python object
+            dVnu = lambda t: solver2.get_du_normal_approx(t, mu, alpha)
+            hk = lambda t: hk0(t) - i * beta * dVnu(t)
             
         #Final approximation
-        solver = DirichletNeumannSolver(self.problem.f2, hks[len(hks)-1], self.problem.area)
+        solver = DirichletNeumannSolver(self.problem.f2, hk, self.problem.area)
         mu, alpha = solver.solve(M)
         
         return mu, alpha
@@ -62,7 +61,7 @@ def load_or_generate_exact_data_cauchy(g, f, area, M_ex=128):
     # else:        
         problem = CauchyProblem(f, g, area)
         solver_ex = LandweberCauchySolver(problem)
-        mu_ex, alpha_ex = solver_ex.solve(M=M_ex, maxiter=0, verbose_mode=False)
+        mu_ex, alpha_ex = solver_ex.solve(M=M_ex, maxiter=3, verbose_mode=False)
 
         mu_ex_data = list(mu_ex)
         mu_ex_data.append(alpha_ex)
@@ -87,7 +86,7 @@ def testCauchy():
     g_x = lambda x: x[0] - 0.1*(x[1] - 1.5)
     g = lambda t: g_x(area.Gamma(t))
     
-    f_x = lambda x: x[0]*np.math.exp(-(x[0]**2))
+    f_x = lambda x: x[0]*np.math.exp(-(x[0]**2)) #Why this function?
     f = lambda t: f_x(area.x_inf(t))
     
     #area.plot_boundary()
@@ -97,19 +96,19 @@ def testCauchy():
     dirichlet_solver = DirichletNeumannSolver(g, f, area)
     
     # generate 'exact' data
-    mu_ex, alpha_ex = load_or_generate_exact_data_cauchy(g, f, area)
-    V = lambda x: dirichlet_solver.get_u_approx(x, mu_ex, alpha_ex, 1, 64)
-    dVnu = lambda t: dirichlet_solver.get_du_normal_approx(t, mu_ex, alpha_ex, 1, 64)
+    # mu_ex, alpha_ex = load_or_generate_exact_data_cauchy(g, f, area)
+    # V = lambda x: dirichlet_solver.get_u_approx(x, mu_ex, alpha_ex, 1, 64)
+    # dVnu = lambda t: dirichlet_solver.get_du_normal_approx(t, mu_ex, alpha_ex, 1, 64)
     
     
     x_test = np.array([1.1, 1.5])
     t_test = np.pi / 2
     
-    print(f'\nV({x_test}) = {V(x_test)}\n')
-    print(f'\ndVnu({x_test}) = {dVnu(t_test)}\n')
+    # print(f'\nV({x_test}) = {V(x_test)}\n')
+    # print(f'\ndVnu({x_test}) = {dVnu(t_test)}\n')
     
     for i in [4, 8, 16, 32, 64]:
-        mu, alpha = solver.solve(M=i, maxiter=0, verbose_mode=True)
+        mu, alpha = solver.solve(M=i, maxiter=1, verbose_mode=True)
         print(f' >>Cauchy> [M={i}] U({x_test}) = {dirichlet_solver.get_u_approx(x_test, mu, alpha, 1, 64)}')
         print(f' >>Cauchy> [M={i}] dUnu({t_test}) = {dirichlet_solver.get_du_normal_approx(t_test, mu, alpha, 1, 64)}')
         

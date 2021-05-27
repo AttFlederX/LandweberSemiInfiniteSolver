@@ -19,7 +19,8 @@ class DirichletNeumannSolver:
 
     def __N(self, x, y):
         y_star = [y[0], -y[1]]
-        return np.math.log(1 / (np.linalg.norm(x - y) * np.linalg.norm(x - y_star)))
+        return np.math.log(1 / max(np.linalg.norm(x - y) * np.linalg.norm(x - y_star),
+                                   1e-10)) #fix to avoid zero division
 
     def __R_j(self, i, j, t, M):
         weigh_sum = 0
@@ -132,10 +133,10 @@ class DirichletNeumannSolver:
 
         return (quad_sum / (2*M)) + (h_inf * inf_sum) + alpha
 
-    def get_du_normal_approx(self, t, mu, alpha, c, M_1):
+    def get_du_normal_approx(self, t, mu, alpha, c = 1, M_1 = 64):
         M = int(len(mu) / 2)
         T = np.linspace(self.area.t_a, self.area.t_b, 2*M, False).tolist()
-
+        #print("t =", t, "T =", T)
         i = T.index(t)
 
         quad_sum = 0
