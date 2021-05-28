@@ -77,23 +77,23 @@ class LandweberCauchySolver:
     
     
 def load_or_generate_exact_data_cauchy(g, f, area, M_ex=128):
-    # if path.exists('exactCauchy.npy'):
-    #     data = np.array([])
-    #     with open('exactCauchy.npy', 'rb') as f:
-    #         data = np.load(f)
-    #         data = data.tolist()
+    if path.exists('exactCauchy.npy'):
+        data = np.array([])
+        with open('exactCauchy.npy', 'rb') as f:
+            data = np.load(f)
+            data = data.tolist()
 
-    #     return data[0][:-1], data[0][-1]
-    # else:        
-        problem = CauchyProblem(f, g, area)
+        return data[0][:-1], data[0][-1]
+    else:        
+        problem = CauchyProblem(g, f, area)
         solver_ex = LandweberCauchySolver(problem)
-        mu_ex, alpha_ex = solver_ex.solve(M=M_ex, maxiter=3, verbose_mode=False)
+        mu_ex, alpha_ex = solver_ex.solve(M=M_ex, beta=0.5, maxiter=7, verbose_mode=True)
 
         mu_ex_data = list(mu_ex)
         mu_ex_data.append(alpha_ex)
 
-        # with open('exactCauchy.npy', 'wb') as f:
-        #     np.save(f, np.array([mu_ex_data]))
+        with open('exactCauchy.npy', 'wb') as f:
+            np.save(f, np.array([mu_ex_data]))
 
         return mu_ex, alpha_ex
 
@@ -122,20 +122,20 @@ def testCauchy():
     dirichlet_solver = DirichletNeumannSolver(g, f, area)
     
     # generate 'exact' data
-    # mu_ex, alpha_ex = load_or_generate_exact_data_cauchy(g, f, area)
-    # V = lambda x: dirichlet_solver.get_u_approx(x, mu_ex, alpha_ex, 1, 64)
-    # dVnu = lambda t: dirichlet_solver.get_du_normal_approx(t, mu_ex, alpha_ex, 1, 64)
+    mu_ex, alpha_ex = load_or_generate_exact_data_cauchy(g, f, area, 24)
+    V = lambda x: dirichlet_solver.get_u_approx(x, mu_ex, alpha_ex)
+    dVnu = lambda t: dirichlet_solver.get_du_normal_approx(t, mu_ex, alpha_ex)
     
     
     x_test = np.array([1.1, 1.5])
     t_test = np.pi / 2
     
-    # print(f'\nV({x_test}) = {V(x_test)}\n')
-    # print(f'\ndVnu({x_test}) = {dVnu(t_test)}\n')
+    print(f'\nV({x_test}) = {V(x_test)}\n')
+    print(f'\ndVnu({x_test}) = {dVnu(t_test)}\n')
     
     for i in [6, 8, 12]:#16, 32, 64]:
         start = time.time()
-        mu, alpha = solver.solve(M=i, beta=0.5, maxiter=6, verbose_mode=True)
+        mu, alpha = solver.solve(M=i, beta=0.5, maxiter=7, verbose_mode=True)
         print(f' >>Cauchy> [M={i}] U({x_test}) = {dirichlet_solver.get_u_approx(x_test, mu, alpha, 1, 64)}')
         print(f' >>Cauchy> [M={i}] dUnu({t_test}) = {dirichlet_solver.get_du_normal_approx(t_test, mu, alpha, 1, 64)}')
         print("------------------", np.round(time.time() - start), "sec. ------------------")
