@@ -140,4 +140,4 @@ def testCauchy():
         print(f' >>Cauchy> [M={i}] dUnu({t_test}) = {dirichlet_solver.get_du_normal_approx(t_test, mu, alpha, 1, 64)}')
         print("------------------", np.round(time.time() - start), "sec. ------------------")
         
-testCauchy()
+#testCauchy()
